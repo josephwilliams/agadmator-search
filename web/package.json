@@ -1,0 +1,16 @@
+{
+  "name": "agadmator-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "NEXT_DIST_DIR=.next-dev next dev -p 3939",
+    "build": "next build",
+    "start": "next start -p 3939"
+  },
+  "dependencies": {
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

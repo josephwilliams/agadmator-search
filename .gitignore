@@ -1,0 +1,13 @@
+node_modules/
+web/node_modules/
+
+.next/
+.next-dev/
+web/.next/
+web/.next-dev/
+
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
