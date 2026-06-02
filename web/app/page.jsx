@@ -33,6 +33,8 @@ const PRESETS = [
   { label: "Najdorf", text: "1.e4 c5 2.Nf3 d6 3.d4 cxd4 4.Nxd4 Nf6 5.Nc3 a6" },
 ];
 
+const PAGE_SIZE = 20;
+
 // Parse PGN-style movetext ("1.b3", "1.e4 c5 2.Nf3") into [{n, side, san}].
 function parseMoveText(s) {
   if (!s.trim()) return [];
@@ -65,6 +67,7 @@ export default function Home() {
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [placeholderVisible, setPlaceholderVisible] = useState(true);
   const [failedImages, setFailedImages] = useState({});
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   function toggle(k) {
     setActive((a) => ({ ...a, [k]: !a[k] }));
@@ -73,6 +76,7 @@ export default function Home() {
   function reset() {
     setQ("");
     setActive({});
+    setVisibleCount(PAGE_SIZE);
   }
 
   function markImageFailed(key) {
@@ -80,6 +84,8 @@ export default function Home() {
   }
 
   const hasState = q.trim() !== "" || Object.values(active).some(Boolean);
+  const visibleResults = results.slice(0, visibleCount);
+  const hasMoreResults = visibleCount < results.length;
 
   useEffect(() => {
     const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
@@ -125,13 +131,17 @@ export default function Home() {
 
     if (![...params.keys()].length) {
       setResults([]);
+      setVisibleCount(PAGE_SIZE);
       return;
     }
     setLoading(true);
     const t = setTimeout(() => {
       fetch("/api/search?" + params.toString())
         .then((r) => r.json())
-        .then((data) => setResults(data))
+        .then((data) => {
+          setResults(data);
+          setVisibleCount(PAGE_SIZE);
+        })
         .finally(() => setLoading(false));
     }, 180);
     return () => clearTimeout(t);
@@ -206,11 +216,15 @@ export default function Home() {
       </div>
 
       <div style={S.meta}>
-        {loading ? "searching…" : results.length ? `${results.length} results` : "type or pick a filter"}
+        {loading
+          ? "searching…"
+          : results.length
+            ? `showing ${Math.min(visibleCount, results.length)} of ${results.length} results`
+            : "type or pick a filter"}
       </div>
 
       <ul style={S.list}>
-        {results.map((g) => (
+        {visibleResults.map((g) => (
           <li key={g.id} className="result-card" style={S.card}>
             <a
               className="result-card-link"
@@ -271,6 +285,14 @@ export default function Home() {
           </li>
         ))}
       </ul>
+      {hasMoreResults && (
+        <button
+          onClick={() => setVisibleCount((count) => Math.min(count + PAGE_SIZE, results.length))}
+          style={S.moreButton}
+        >
+          More results
+        </button>
+      )}
       <footer style={S.footer}>
         Fan-made search for agadmator's public video archive. Not affiliated with agadmator. Portraits are Wikimedia Commons images with their own licenses.
       </footer>
@@ -344,6 +366,12 @@ const S = {
   blackMark: { color: "#686870" },
   vs: { color: "var(--muted)", margin: "0 7px" },
   tags: { color: "var(--muted)", fontSize: 12, marginTop: 4 },
+  moreButton: {
+    width: "100%", marginTop: 14, padding: "12px 14px",
+    background: "transparent", color: "var(--fg)", borderWidth: 1,
+    borderStyle: "solid", borderColor: "var(--line)", borderRadius: 8,
+    fontFamily: "inherit", fontSize: 14, cursor: "pointer",
+  },
   footer: {
     color: "var(--muted)", fontSize: 12, lineHeight: 1.5,
     marginTop: 34, paddingTop: 18, borderTop: "1px solid var(--line)",

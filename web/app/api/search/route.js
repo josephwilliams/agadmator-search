@@ -108,6 +108,7 @@ export function GET(req) {
   return Response.json(searchGames(opts), {
     headers: {
       "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
+      "X-Result-Limit": String(opts.limit),
     },
   });
 }
