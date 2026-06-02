@@ -1445,6 +1445,14 @@ export function getGame(id) {
 // Lean shape for search results — defers heavy fields (pgn, full desc) to getGame.
 export function summarize(rec, score) {
   const portraits = loadPortraits();
+  const portraitSummary = (portrait) =>
+    portrait
+      ? {
+          portraitUrl: portrait.portraitUrl,
+          license: portrait.license,
+          sourcePage: portrait.sourcePage,
+        }
+      : null;
   const players =
     rec.white || rec.black ? `${rec.white || "?"}–${rec.black || "?"}` : null;
   return {
@@ -1454,8 +1462,8 @@ export function summarize(rec, score) {
     white: rec.white,
     black: rec.black,
     portraits: {
-      ...(rec.white && portraits[rec.white] ? { white: portraits[rec.white] } : {}),
-      ...(rec.black && portraits[rec.black] ? { black: portraits[rec.black] } : {}),
+      ...(rec.white && portraits[rec.white] ? { white: portraitSummary(portraits[rec.white]) } : {}),
+      ...(rec.black && portraits[rec.black] ? { black: portraitSummary(portraits[rec.black]) } : {}),
     },
     year: rec.year,
     eco: rec.eco,

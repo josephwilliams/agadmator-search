@@ -1,12 +1,22 @@
 import { searchGames } from "../../../../src/search.js";
 
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 50;
+const MAX_QUERY_LENGTH = 240;
+
 // Node runtime: the search core reads data/index.json from disk.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export function GET(req) {
   const sp = new URL(req.url).searchParams;
-  const opts = { query: sp.get("q") || "", limit: 150 };
+  const requestedLimit = Number(sp.get("limit") || DEFAULT_LIMIT);
+  const opts = {
+    query: (sp.get("q") || "").slice(0, MAX_QUERY_LENGTH),
+    limit: Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(1, requestedLimit), MAX_LIMIT)
+      : DEFAULT_LIMIT,
+  };
   const str = (k) => sp.get(k) || undefined;
   const num = (k) => (sp.get(k) ? Number(sp.get(k)) : undefined);
   const bool = (k) => sp.get(k) === "1" || undefined;
@@ -95,5 +105,9 @@ export function GET(req) {
     } catch {}
   }
 
-  return Response.json(searchGames(opts));
+  return Response.json(searchGames(opts), {
+    headers: {
+      "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
+    },
+  });
 }

@@ -64,6 +64,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [placeholderVisible, setPlaceholderVisible] = useState(true);
+  const [failedImages, setFailedImages] = useState({});
 
   function toggle(k) {
     setActive((a) => ({ ...a, [k]: !a[k] }));
@@ -72,6 +73,10 @@ export default function Home() {
   function reset() {
     setQ("");
     setActive({});
+  }
+
+  function markImageFailed(key) {
+    setFailedImages((failed) => ({ ...failed, [key]: true }));
   }
 
   const hasState = q.trim() !== "" || Object.values(active).some(Boolean);
@@ -219,12 +224,17 @@ export default function Home() {
                   {["white", "black"].map((side) => {
                     const name = g[side];
                     const portrait = g.portraits?.[side];
-                    return portrait?.portraitUrl ? (
+                    const imageKey = `${g.id}:${side}`;
+                    return portrait?.portraitUrl && !failedImages[imageKey] ? (
                       <img
                         key={side}
                         src={portrait.portraitUrl}
                         alt=""
                         title={`${name} · ${portrait.license || "Wikimedia Commons"}`}
+                        loading="lazy"
+                        decoding="async"
+                        referrerPolicy="no-referrer"
+                        onError={() => markImageFailed(imageKey)}
                         style={S.avatar}
                       />
                     ) : (
@@ -261,6 +271,9 @@ export default function Home() {
           </li>
         ))}
       </ul>
+      <footer style={S.footer}>
+        Fan-made search for agadmator's public video archive. Not affiliated with agadmator. Portraits are Wikimedia Commons images with their own licenses.
+      </footer>
     </main>
   );
 }
@@ -331,4 +344,8 @@ const S = {
   blackMark: { color: "#686870" },
   vs: { color: "var(--muted)", margin: "0 7px" },
   tags: { color: "var(--muted)", fontSize: 12, marginTop: 4 },
+  footer: {
+    color: "var(--muted)", fontSize: 12, lineHeight: 1.5,
+    marginTop: 34, paddingTop: 18, borderTop: "1px solid var(--line)",
+  },
 };
