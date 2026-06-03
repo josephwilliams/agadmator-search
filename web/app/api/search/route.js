@@ -1,4 +1,5 @@
 import { searchGames } from "../../../../src/search.js";
+import { rateLimit } from "../../../lib/ratelimit.js";
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 50;
@@ -9,6 +10,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export function GET(req) {
+  const limited = rateLimit(req);
+  if (limited) return limited;
   const sp = new URL(req.url).searchParams;
   const requestedLimit = Number(sp.get("limit") || DEFAULT_LIMIT);
   const opts = {

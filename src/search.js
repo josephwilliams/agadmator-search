@@ -14,6 +14,17 @@ let RECORDS = null;
 let PORTRAITS = null;
 const DERIVED = new WeakMap();
 
+// In-process LRU memo of identical searches. Cuts repeated CPU work under load
+// (e.g. a traffic spike where many clients run the same query) without any
+// external cache. Keyed by the canonical request; results are read-only.
+const SEARCH_CACHE = new Map();
+const SEARCH_CACHE_MAX = 500;
+
+function cacheKey(opts) {
+  const keys = Object.keys(opts).filter((k) => opts[k] !== undefined).sort();
+  return keys.map((k) => `${k}=${JSON.stringify(opts[k])}`).join("&");
+}
+
 export function load() {
   if (!RECORDS) RECORDS = JSON.parse(readFileSync(INDEX_PATH, "utf8"));
   return RECORDS;
@@ -1149,6 +1160,13 @@ function scoreRecord(rec, groups) {
  * @param {number} [opts.limit]   default 5
  */
 export function searchGames(opts = {}) {
+  const key = cacheKey(opts);
+  const cached = SEARCH_CACHE.get(key);
+  if (cached) {
+    SEARCH_CACHE.delete(key); // LRU touch: move to most-recently-used
+    SEARCH_CACHE.set(key, cached);
+    return cached;
+  }
   const recs = load();
   const inferred = inferQueryOptions(opts.query || "", recs);
   const hasInferredFilters = Object.entries(inferred).some(
@@ -1435,7 +1453,12 @@ export function searchGames(opts = {}) {
     scored = pool.map((r) => ({ r, s: 0 }));
   }
 
-  return scored.slice(0, limit).map((x) => summarize(x.r, x.s));
+  const out = scored.slice(0, limit).map((x) => summarize(x.r, x.s));
+  SEARCH_CACHE.set(key, out);
+  if (SEARCH_CACHE.size > SEARCH_CACHE_MAX) {
+    SEARCH_CACHE.delete(SEARCH_CACHE.keys().next().value); // evict oldest
+  }
+  return out;
 }
 
 export function getGame(id) {
