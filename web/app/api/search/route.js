@@ -1,5 +1,6 @@
 import { searchGames } from "../../../../src/search.js";
 import { rateLimit } from "../../../lib/ratelimit.js";
+import { verifyPow } from "../../../lib/challenge.js";
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 50;
@@ -9,9 +10,17 @@ const MAX_QUERY_LENGTH = 240;
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export function GET(req) {
+export async function GET(req) {
   const limited = rateLimit(req);
   if (limited) return limited;
+  // Proof-of-work gate (no-op unless CHALLENGE_SECRET is set). A missing/expired
+  // token returns 401 so the client re-solves and retries.
+  if (!(await verifyPow(req, Date.now()))) {
+    return new Response(JSON.stringify({ error: "challenge_required" }), {
+      status: 401,
+      headers: { "content-type": "application/json" },
+    });
+  }
   const sp = new URL(req.url).searchParams;
   const requestedLimit = Number(sp.get("limit") || DEFAULT_LIMIT);
   const opts = {

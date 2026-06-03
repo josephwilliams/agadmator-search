@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { solve, encodeToken } from "../lib/pow.js";
 
 const PLACEHOLDERS = [
   "Magnus wins with black in the Sicilian",
@@ -41,6 +42,58 @@ const MAX_QUERY_CHARS = 120;
 // load. Module scope so it survives re-renders.
 const responseCache = new Map();
 const RESPONSE_CACHE_MAX = 50;
+
+// Proof-of-work token manager. When the server has PoW enabled it solves a
+// challenge once (~100ms, in the background) and reuses the token until it
+// nears expiry. Fully transparent and a no-op when PoW is disabled server-side.
+let powState = null; // { header, exp } — header null means "PoW disabled"
+let powInFlight = null;
+
+async function getPowHeader() {
+  if (powState && (powState.header === null || powState.exp - 30000 > Date.now())) {
+    return powState.header;
+  }
+  if (!powInFlight) {
+    powInFlight = (async () => {
+      try {
+        const ch = await fetch("/api/challenge").then((r) => r.json());
+        if (!ch.enabled) {
+          powState = { header: null };
+          return null;
+        }
+        const x = await solve(ch.nonce, ch.nibbles);
+        const header = encodeToken({ nonce: ch.nonce, exp: ch.exp, nibbles: ch.nibbles, sig: ch.sig, x });
+        powState = { header, exp: ch.exp };
+        return header;
+      } catch {
+        // Never wedge the UI: proceed tokenless. If the server requires one it
+        // returns 401 and the caller retries with a fresh token.
+        powState = null;
+        return null;
+      } finally {
+        powInFlight = null;
+      }
+    })();
+  }
+  return powInFlight;
+}
+
+async function fetchSearch(qs) {
+  const call = async () => {
+    const header = await getPowHeader();
+    return fetch("/api/search?" + qs, header ? { headers: { "x-pow": header } } : undefined);
+  };
+  try {
+    let res = await call();
+    if (res.status === 401) {
+      powState = null; // stale/invalid token → solve fresh and retry once
+      res = await call();
+    }
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+}
 
 // Parse PGN-style movetext ("1.b3", "1.e4 c5 2.Nf3") into [{n, side, san}].
 function parseMoveText(s) {
@@ -155,21 +208,30 @@ export default function Home() {
     }
 
     setLoading(true);
-    const t = setTimeout(() => {
-      fetch("/api/search?" + qs)
-        .then((r) => r.json())
-        .then((data) => {
-          responseCache.set(qs, data);
-          if (responseCache.size > RESPONSE_CACHE_MAX) {
-            responseCache.delete(responseCache.keys().next().value);
-          }
-          setResults(data);
-          setVisibleCount(PAGE_SIZE);
-        })
-        .finally(() => setLoading(false));
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      const data = await fetchSearch(qs);
+      if (cancelled) return; // a newer query superseded this one
+      if (data) {
+        responseCache.set(qs, data);
+        if (responseCache.size > RESPONSE_CACHE_MAX) {
+          responseCache.delete(responseCache.keys().next().value);
+        }
+        setResults(data);
+        setVisibleCount(PAGE_SIZE);
+      }
+      setLoading(false);
     }, 320);
-    return () => clearTimeout(t);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
   }, [q, active]);
+
+  // Pre-solve the PoW challenge on load so the first search has a token ready.
+  useEffect(() => {
+    getPowHeader();
+  }, []);
 
   return (
     <main className="main" style={S.main}>

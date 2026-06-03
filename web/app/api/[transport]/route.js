@@ -45,9 +45,29 @@ const handler = createMcpHandler(
   },
 );
 
-// Shed bursts before touching the MCP handler.
+// Optional bearer-token gate. Opt-in: with MCP_API_TOKEN unset the endpoint
+// stays public; set it (a random secret you generate and hand to authorized
+// agents out-of-band) to require `Authorization: Bearer <token>`. This token
+// lives only in env + agent configs — never in the browser/frontend.
+const MCP_TOKEN = process.env.MCP_API_TOKEN || "";
+
+function unauthorized() {
+  return new Response(JSON.stringify({ error: "unauthorized" }), {
+    status: 401,
+    headers: { "content-type": "application/json", "www-authenticate": "Bearer" },
+  });
+}
+
+// Shed bursts and check auth before touching the MCP handler.
 async function limited(req) {
-  return rateLimit(req) ?? handler(req);
+  const rl = rateLimit(req);
+  if (rl) return rl;
+  if (MCP_TOKEN) {
+    const auth = req.headers.get("authorization") || "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+    if (token !== MCP_TOKEN) return unauthorized();
+  }
+  return handler(req);
 }
 
 export { limited as GET, limited as POST, limited as DELETE };
