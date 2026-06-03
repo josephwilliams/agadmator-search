@@ -34,6 +34,13 @@ const PRESETS = [
 ];
 
 const PAGE_SIZE = 20;
+const MAX_QUERY_CHARS = 120;
+
+// Client-side cache of identical query strings → results, so retyping or
+// flipping filters back and forth doesn't refetch. Cuts origin/CDN hits under
+// load. Module scope so it survives re-renders.
+const responseCache = new Map();
+const RESPONSE_CACHE_MAX = 50;
 
 // Parse PGN-style movetext ("1.b3", "1.e4 c5 2.Nf3") into [{n, side, san}].
 function parseMoveText(s) {
@@ -113,7 +120,9 @@ export default function Home() {
     if (isMoveQuery) {
       const moves = parseMoveText(trimmed);
       if (moves.length) params.set("moves", JSON.stringify(moves));
-    } else if (trimmed) {
+    } else if (trimmed.length >= 2) {
+      // Don't fire on a single character — cuts a burst of near-useless
+      // requests while the user is still typing.
       params.set("q", trimmed);
     }
     if (active.queenSac) params.set("queenSac", "1");
@@ -129,21 +138,36 @@ export default function Home() {
     );
     if (semanticTags.length) params.set("tags", semanticTags.join(","));
 
-    if (![...params.keys()].length) {
+    const qs = params.toString();
+    if (!qs) {
       setResults([]);
       setVisibleCount(PAGE_SIZE);
+      setLoading(false);
       return;
     }
+
+    // Identical query already fetched → serve from memory, no network hit.
+    if (responseCache.has(qs)) {
+      setResults(responseCache.get(qs));
+      setVisibleCount(PAGE_SIZE);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     const t = setTimeout(() => {
-      fetch("/api/search?" + params.toString())
+      fetch("/api/search?" + qs)
         .then((r) => r.json())
         .then((data) => {
+          responseCache.set(qs, data);
+          if (responseCache.size > RESPONSE_CACHE_MAX) {
+            responseCache.delete(responseCache.keys().next().value);
+          }
           setResults(data);
           setVisibleCount(PAGE_SIZE);
         })
         .finally(() => setLoading(false));
-    }, 180);
+    }, 320);
     return () => clearTimeout(t);
   }, [q, active]);
 
@@ -171,6 +195,7 @@ export default function Home() {
           autoFocus
           aria-label="Search agadmator games"
           value={q}
+          maxLength={MAX_QUERY_CHARS}
           onChange={(e) => setQ(e.target.value)}
           style={{ ...S.input, paddingRight: 44 }}
         />
