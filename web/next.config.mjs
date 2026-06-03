@@ -9,14 +9,9 @@ const webNodeModules = fileURLToPath(new URL("./node_modules", import.meta.url))
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
-  // The search core and index.json live one level up, outside web/.
+  // The search core lives one level up, outside web/. It imports the data JSON
+  // directly (bundled into the function), so no runtime file tracing is needed.
   outputFileTracingRoot: new URL("..", import.meta.url).pathname,
-  // Force the data files into every API function bundle. The search core reads
-  // them via readFileSync at runtime; this guarantees they're traced into both
-  // /api/search and the /api/[transport] MCP route on Vercel.
-  outputFileTracingIncludes: {
-    "/api/**": ["../data/index.json", "../data/player-portraits.json"],
-  },
   webpack: (config) => {
     config.resolve.modules = [webNodeModules, ...(config.resolve.modules || ["node_modules"])];
     return config;

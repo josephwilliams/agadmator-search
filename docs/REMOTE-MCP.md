@@ -42,9 +42,10 @@ ships with your frontend — no separate project, no extra cost.
    ```
    If the project is already linked to Vercel, a `git push` to the production
    branch deploys automatically.
-3. That's it. The data file (`data/index.json`, 8.3 MB) is traced into the
-   function bundle automatically — see `outputFileTracingIncludes` in
-   `web/next.config.mjs`. No storage service needed.
+3. That's it. The data files (`data/index.json`, 8.3 MB, and
+   `data/player-portraits.json`) are imported by the search core, so webpack
+   bundles them directly into the function — no runtime file reads, no storage
+   service needed.
 
 > **Vercel project root.** The Vercel project's Root Directory must be `web/`
 > (the `vercel.json` and `next.config.mjs` there drive the build). The data

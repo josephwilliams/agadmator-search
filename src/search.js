@@ -1,13 +1,13 @@
 // Shared search core. No LLM, no network — pure in-memory ranking over data/index.json.
 // Both the MCP server and the web UI call these functions, so results are identical.
 
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const INDEX_PATH = join(__dirname, "..", "data", "index.json");
-const PORTRAITS_PATH = join(__dirname, "..", "data", "player-portraits.json");
+// The data is imported (not read from disk) so it is bundled directly into the
+// consumer — the webpack-built Vercel function and the stdio package alike.
+// This avoids runtime path resolution, which breaks once webpack bakes
+// import.meta.url to a build-time path that doesn't exist in the serverless
+// runtime. Node 22+ and webpack both support JSON import attributes.
+import INDEX from "../data/index.json" with { type: "json" };
+import PORTRAITS_FILE from "../data/player-portraits.json" with { type: "json" };
 
 /** @type {Array<object>} */
 let RECORDS = null;
@@ -26,18 +26,12 @@ function cacheKey(opts) {
 }
 
 export function load() {
-  if (!RECORDS) RECORDS = JSON.parse(readFileSync(INDEX_PATH, "utf8"));
+  if (!RECORDS) RECORDS = INDEX;
   return RECORDS;
 }
 
 export function loadPortraits() {
-  if (!PORTRAITS) {
-    try {
-      PORTRAITS = JSON.parse(readFileSync(PORTRAITS_PATH, "utf8")).portraits || {};
-    } catch {
-      PORTRAITS = {};
-    }
-  }
+  if (!PORTRAITS) PORTRAITS = PORTRAITS_FILE?.portraits || {};
   return PORTRAITS;
 }
 
