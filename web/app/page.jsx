@@ -382,6 +382,15 @@ export default function Home() {
       )}
       <footer style={S.footer}>
         Fan-made search for agadmator's public video archive. Not affiliated with agadmator. Portraits are Wikimedia Commons images with their own licenses.
+        {" "}
+        <a
+          href="https://github.com/josephwilliams/agadmator-search"
+          target="_blank"
+          rel="noreferrer"
+          style={S.footerLink}
+        >
+          Source on GitHub
+        </a>
       </footer>
     </main>
   );
@@ -462,5 +471,9 @@ const S = {
   footer: {
     color: "var(--muted)", fontSize: 12, lineHeight: 1.5,
     marginTop: 34, paddingTop: 18, borderTop: "1px solid var(--line)",
+  },
+  footerLink: {
+    color: "var(--muted)", textDecoration: "underline", textUnderlineOffset: 3,
+    whiteSpace: "nowrap",
   },
 };

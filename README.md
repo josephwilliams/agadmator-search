@@ -44,8 +44,9 @@ npm run query -- --move 1w:e4 --move 1b:c5 --move 2w:Nf3
 ## Install
 
 ```bash
-git clone <this-repo-url>
-cd agadmator-mcp
+git clone git@github.com:josephwilliams/agadmator-search.git
+# or: git clone https://github.com/josephwilliams/agadmator-search.git
+cd agadmator-search
 npm install
 ```
 
